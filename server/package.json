@@ -1,0 +1,19 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fast-xml-parser": "^3.16.0",
+    "fastify": "^2.13.1",
+    "fastify-cors": "^3.0.3",
+    "fastify-static": "^2.7.0",
+    "request": "^2.88.2"
+  }
+}
