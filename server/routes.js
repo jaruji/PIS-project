@@ -6,9 +6,14 @@ function parseXML(xml, method) {
   return json['SOAP-ENV:Envelope']['SOAP-ENV:Body']['ns1:' + method + 'Response'];
 }
 
-async function getImages(id) {
+function doRequest(req) {
 
-
+  return new Promise(function(resolve, reject) {
+    request(req.body, function (error, response, body) {
+      if (error) reject(error);
+      resolve(parseXML(response, req.method));
+    });
+  });
 }
 
 async function routes(fastify) {
@@ -17,35 +22,39 @@ async function routes(fastify) {
 fastify.get('/games', async (req, res) => {
   let gamesResponse;
   let hra_id;
+
   let gamesRequest = {
-    'method': 'POST',
-    'url': 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106hra',
-    'headers': {
-      'Content-Type': ['text/xml', 'application/xml']
-    },
-    'body': `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106hra/types">
-              <soapenv:Header/>
-              <soapenv:Body>
-                <typ:getAll/>
-              </soapenv:Body>
-            </soapenv:Envelope>`
+    method: 'getAll',
+    body: {
+      method: 'POST',
+      url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106hra',
+      headers: {
+        'Content-Type': ['text/xml', 'application/xml']
+      },
+      body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106hra/types">
+                <soapenv:Header/>
+                <soapenv:Body>
+                  <typ:getAll/>
+                </soapenv:Body>
+              </soapenv:Envelope>`
+    }
   };
 
-
-  request(gamesRequest, function (error, response) {
-    if (error) throw new Error(error);
-    gamesResponse = parseXML(response, 'getAll');
-    gamesResponse = gamesResponse.hras.hra;
-
-    for(let i = 0; i < gamesResponse.length; i++) {
-      hra_id = gamesResponse[i].id;
-      let imagesRequest = {
-        'method': 'POST',
-        'url': 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106obrazok',
-        'headers': {
+  gamesResponse = await doRequest(gamesRequest);
+  gamesResponse = gamesResponse.hras.hra;
+  for(let i in gamesResponse) {
+    hra_id = gamesResponse[i].id;
+    gamesResponse[i].obrazky = [];
+    // console.log(imagesRequest.hra_id);
+    let images = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106obrazok',
+        headers: {
           'Content-Type': ['text/xml', 'application/xml']
         },
-        'body': `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106obrazok/types">
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106obrazok/types">
                    <soapenv:Header/>
                    <soapenv:Body>
                       <typ:getByAttributeValue>
@@ -57,24 +66,85 @@ fastify.get('/games', async (req, res) => {
                       </typ:getByAttributeValue>
                    </soapenv:Body>
                 </soapenv:Envelope>`
-      };
+      }
+    });
+    images = images.obrazoks.obrazok;
 
-      gamesResponse[i].obrazky = [];
-      let images;
-      request(imagesRequest, function (error, response) {
-        if (error) throw new Error(error);
-        images = parseXML(response, 'getByAttributeValue');
-        images = images.obrazoks.obrazok;
-        images.forEach(img => {
-          gamesResponse[i].obrazky.push(img.img);
-        })
-
-        if(i === gamesResponse.length - 1)
-          res.send(gamesResponse);
-      });
+    if(images.length === undefined)
+      gamesResponse[i].obrazky.push(images.img)
+    else if(images !== null) {
+      images.forEach(img => {
+        gamesResponse[i].obrazky.push(img.img);
+      })
     }
-  });
 
+    let _categories = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106kategorie_hry',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106kategorie_hry/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>hra_id</attribute_name>
+                       <attribute_value>${hra_id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    });
+
+    let category_ids = [];
+    _categories = _categories['kategorie_hrys']['kategorie_hry'];
+
+    if(_categories.length === undefined)
+      category_ids.push(_categories.kategoria_id);
+    else if(_categories !== null) {
+      _categories.forEach(key => {
+        category_ids.push(key.kategoria_id);
+      })
+    }
+
+    gamesResponse[i].kategorie = [];
+    for(let j in category_ids) {
+      let category = await doRequest({
+        method: 'getByAttributeValue',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106kategoria',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106kategoria/types">
+                   <soapenv:Header/>
+                   <soapenv:Body>
+                      <typ:getByAttributeValue>
+                         <attribute_name>id</attribute_name>
+                         <attribute_value>${category_ids[j]}</attribute_value>
+                         <ids>
+                            <id></id>
+                         </ids>
+                      </typ:getByAttributeValue>
+                   </soapenv:Body>
+                  </soapenv:Envelope>`
+        }
+      });
+
+      category = category.kategorias.kategoria;
+      gamesResponse[i].kategorie.push(category.typ);
+    }
+  }
+
+
+
+  res.send(gamesResponse);
 })
 
 }
