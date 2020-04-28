@@ -236,18 +236,35 @@ async function routes(fastify){
       method: 'getByAttributeValue',
       body: {
         method: 'POST',
-        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106hra',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106zaznam',
         headers: {
           'Content-Type': ['text/xml', 'application/xml']
         },
-        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106hra/types">
-                  <soapenv:Header/>
-                  <soapenv:Body>
-                    <typ:getAll/>
-                  </soapenv:Body>
-                </soapenv:Envelope>`
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106zaznam/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>citatel_id</attribute_name>
+                       <attribute_value>${id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
       }
     })
+    registry = registry.zaznams.zaznam
+    if(registry === undefined){
+      res.send({response: true})
+      return
+    }
+    let expiration = new Date(registry.ukoncenie_podmienky)
+    if(expiration > new Date()){
+      res.send({response: false})
+    }
+    else
+      res.send({response: true})
     //TODO: return boolean
   })
 
