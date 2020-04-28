@@ -287,14 +287,14 @@ async function routes(fastify){
                             <id></id>
                             <name></name>
                             <vyhotovil></vyhotovil>
-                            <citatel_id>${id}</citatel_id>
-                            <exemplar_id>${game_id}</exemplar_id>
-                            <datum_vytvorenia>${createdAt}</datum_vytvorenia>
+                            <citatel_id>${req.body.id}</citatel_id>
+                            <exemplar_id>${req.body.game_id}</exemplar_id>
+                            <datum_vytvorenia>${req.body.createdAt}</datum_vytvorenia>
                             <datum_vybavenia></datum_vybavenia>
-                            <datum_od>${dateFrom}</datum_od>
-                            <datum_do>${dateTo}</datum_do>
-                            <stav>${state}</stav>
-                            <popis>${note}</popis>
+                            <datum_od>${req.body.dateFrom}</datum_od>
+                            <datum_do>${req.body.dateTo}</datum_do>
+                            <stav>${req.body.state}</stav>
+                            <popis>${req.body.note}</popis>
                             <sprava_knihovnika></sprava_knihovnika>
                          </rezervacia>
                       </typ:insert>
