@@ -198,12 +198,65 @@ async function routes(fastify){
 
   })
 
+  fastify.get('/checkLicence', async(req, res) => {
+    let id = req.query.id
+    let licence = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106preukaz',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106preukaz/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>id</attribute_name>
+                       <attribute_value>${id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    });
+    licence = licence.preukazs.preukaz
+    expiration = new Date(licence.platny_do)
+    if(expiration > new Date())
+      res.send({response: true})
+    else
+      res.send({response: false})
+  })
+
+  fastify.get('/checkRegistry', async(req, res) => {
+    let id = req.query.id
+    let registry = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106hra',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106hra/types">
+                  <soapenv:Header/>
+                  <soapenv:Body>
+                    <typ:getAll/>
+                  </soapenv:Body>
+                </soapenv:Envelope>`
+      }
+    })
+    //TODO: return boolean
+  })
+
   fastify.post('/reservation/add', async(req, res) => {
     let insert = await doRequest({
-        method: 'getByAttributeValue',
+        method: 'insert',
         body: {
           method: 'POST',
-          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106obrazok',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
           headers: {
             'Content-Type': ['text/xml', 'application/xml']
           },
@@ -236,7 +289,9 @@ async function routes(fastify){
   })
 
   fastify.get('/reservation', async(req, res) => {
+    //TODO: get reservations based on your ID / or on their state!(librarian)
     let id = req.query.id
+    let query = await doRequest()
   })
 
 }
