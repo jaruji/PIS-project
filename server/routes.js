@@ -193,6 +193,52 @@ async function routes(fastify){
     }
     res.send(gamesResponse)
   })
+
+  fastify.get('/login', async(req, res) => {
+
+  })
+
+  fastify.post('/reservation/add', async(req, res) => {
+    let insert = await doRequest({
+        method: 'getByAttributeValue',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106obrazok',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+                   <soapenv:Header/>
+                   <soapenv:Body>
+                      <typ:insert>
+                         <team_id>106</team_id>
+                         <team_password>RDVKPF</team_password>
+                         <rezervacia>
+                            <id></id>
+                            <name></name>
+                            <vyhotovil></vyhotovil>
+                            <citatel_id>${id}</citatel_id>
+                            <exemplar_id>${game_id}</exemplar_id>
+                            <datum_vytvorenia>${createdAt}</datum_vytvorenia>
+                            <datum_vybavenia></datum_vybavenia>
+                            <datum_od>${dateFrom}</datum_od>
+                            <datum_do>${dateTo}</datum_do>
+                            <stav>${state}</stav>
+                            <popis>${note}</popis>
+                            <sprava_knihovnika></sprava_knihovnika>
+                         </rezervacia>
+                      </typ:insert>
+                   </soapenv:Body>
+                </soapenv:Envelope>`
+        }
+      })
+    res.code(200).send()
+  })
+
+  fastify.get('/reservation', async(req, res) => {
+    let id = req.query.id
+  })
+
 }
 
 module.exports = routes
