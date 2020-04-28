@@ -1,5 +1,6 @@
 const request = require('request');
 const parser = require('fast-xml-parser');
+const sha256 = require('js-sha256');
 
 function parseXML(xml, method) {
   let json = parser.parse(xml.body);
@@ -194,8 +195,160 @@ async function routes(fastify){
     res.send(gamesResponse)
   })
 
-  fastify.get('/login', async(req, res) => {
+  fastify.post('/login', async(req, res) => {
+    let reader = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106citatel',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106citatel/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>email</attribute_name>
+                       <attribute_value>${req.body.email}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    });
+    let bookmaker = await doRequest({
+      method: 'getAll',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106knihovnik',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106knihovnik/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getAll/>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    });
+    reader = reader.citatels.citatel;
+    bookmaker = bookmaker.knihovniks.knihovnik;
+    let readerSHA = sha256(req.body.heslo);
+    let bookmakerSHA = sha256(req.body.heslo);
+    if(bookmakerSHA === bookmaker.heslo)
+      console.log("je to knihovnik");
+    if(readerSHA === reader.heslo)
+      console.log("je to citatel");
+  })
 
+  fastify.get('/forgotPassword', async(req, res) => {
+    let email = req.query.email;
+    let = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/NotificationServices/Email',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106exemplar/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>hra_id</attribute_name>
+                       <attribute_value>${hra_id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+                </soapenv:Envelope>`
+      }
+    })
+  })
+
+  fastify.get('/checkSelectedDate', async(req, res) => {
+    let hra_id = req.query.id;
+    let dateFrom = new Date(req.query.dateFrom);
+    let dateTo = new Date(req.query.dateTo);
+    let exemplars = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106exemplar',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106exemplar/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>hra_id</attribute_name>
+                       <attribute_value>${hra_id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+                </soapenv:Envelope>`
+      }
+    });
+    exemplars = exemplars.exemplars.exemplar;
+    if(exemplars === undefined) {
+      res.send({response: "Not available"});
+      return;
+    }
+    let reservations = [];
+    for(let i in exemplars) {
+      let _reservations = await doRequest({
+        method: 'getByAttributeValue',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+                   <soapenv:Header/>
+                   <soapenv:Body>
+                      <typ:getByAttributeValue>
+                         <attribute_name>exemplar_id</attribute_name>
+                         <attribute_value>${exemplars[i].id}</attribute_value>
+                         <ids>
+                            <id></id>
+                         </ids>
+                      </typ:getByAttributeValue>
+                   </soapenv:Body>
+                </soapenv:Envelope>`
+        }
+      });
+      _reservations = _reservations.rezervacias.rezervacia;
+      if(_reservations !== undefined) {
+        if(_reservations.length === undefined)
+          reservations.push(_reservations);
+        else {
+          for(let j in _reservations)
+            reservations.push(_reservations[j]);
+        }
+      }
+    }
+    exemplars = exemplars.filter((x) => { return x.stav !== "Vyradená"; });
+    reservations = reservations.filter((x) => { return x.stav === "Vybavená" || x.stav === "Vybavuje sa" });
+    if(reservations.length === 0) {
+      res.send(exemplars);
+      return;
+    }
+    for(let i in reservations) {
+      if((dateFrom >= new Date(reservations[i].datum_od) && dateFrom <= new Date(reservations[i].datum_do)) || (dateTo >= new Date(reservations[i].datum_od) && dateTo <= new Date(reservations[i].datum_do)))
+        exemplars = exemplars.filter((x) => { return x.id !== reservations[i].exemplar_id });
+    }
+    if(exemplars.length === 0)
+      res.send({ response: "Not available" });
+    else
+      res.send(exemplars);
   })
 
   fastify.get('/checkLicence', async(req, res) => {
@@ -287,14 +440,14 @@ async function routes(fastify){
                             <id></id>
                             <name></name>
                             <vyhotovil></vyhotovil>
-                            <citatel_id>${req.body.id}</citatel_id>
-                            <exemplar_id>${req.body.game_id}</exemplar_id>
-                            <datum_vytvorenia>${req.body.createdAt}</datum_vytvorenia>
+                            <citatel_id>${req.body.citatel_id}</citatel_id>
+                            <exemplar_id>${req.body.exemplar_id}</exemplar_id>
+                            <datum_vytvorenia>${req.body.datum_vytvorenia}</datum_vytvorenia>
                             <datum_vybavenia></datum_vybavenia>
-                            <datum_od>${req.body.dateFrom}</datum_od>
-                            <datum_do>${req.body.dateTo}</datum_do>
-                            <stav>${req.body.state}</stav>
-                            <popis>${req.body.note}</popis>
+                            <datum_od>${req.body.datum_od}</datum_od>
+                            <datum_do>${req.body.datum_do}</datum_do>
+                            <stav>Vybavená</stav>
+                            <popis>${req.body.popis}</popis>
                             <sprava_knihovnika></sprava_knihovnika>
                          </rezervacia>
                       </typ:insert>
@@ -302,7 +455,7 @@ async function routes(fastify){
                 </soapenv:Envelope>`
         }
       })
-    res.code(200).send()
+    res.send(insert);
   })
 
   fastify.get('/reservation', async(req, res) => {
