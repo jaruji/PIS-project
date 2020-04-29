@@ -2,10 +2,12 @@ const request = require('request');
 const parser = require('fast-xml-parser');
 const sha256 = require('js-sha256');
 
+
 function parseXML(xml, method) {
   let json = parser.parse(xml.body);
   return json['SOAP-ENV:Envelope']['SOAP-ENV:Body']['ns1:' + method + 'Response'];
 }
+
 
 function doRequest(req){
   return new Promise(function(resolve, reject){
@@ -15,6 +17,7 @@ function doRequest(req){
     });
   });
 }
+
 
 async function routes(fastify){
   fastify.get('/game', async (req, res) => {
@@ -97,10 +100,8 @@ async function routes(fastify){
               </soapenv:Envelope>`
       }
     });
-
     let category_ids = [];
     _categories = _categories['kategorie_hrys']['kategorie_hry'];
-
     if(_categories.length === undefined)
       category_ids.push(_categories.kategoria_id);
     else if(_categories !== null) {
@@ -108,7 +109,6 @@ async function routes(fastify){
         category_ids.push(key.kategoria_id);
       })
     }
-
     gamesResponse.kategorie = [];
     for(let i in category_ids){
       let category = await doRequest({
@@ -138,6 +138,7 @@ async function routes(fastify){
     }
     res.send(gamesResponse);
   })
+
 
   fastify.get('/games', async(req, res) => {
     let gamesResponse = await doRequest({
@@ -195,6 +196,7 @@ async function routes(fastify){
     res.send(gamesResponse)
   })
 
+
   fastify.post('/login', async(req, res) => {
     let reader = await doRequest({
       method: 'getByAttributeValue',
@@ -219,7 +221,7 @@ async function routes(fastify){
       }
     });
     let bookmaker = await doRequest({
-      method: 'getAll',
+      method: 'getByAttributeValue',
       body: {
         method: 'POST',
         url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106knihovnik',
@@ -229,20 +231,37 @@ async function routes(fastify){
         body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106knihovnik/types">
                  <soapenv:Header/>
                  <soapenv:Body>
-                    <typ:getAll/>
+                    <typ:getByAttributeValue>
+                       <attribute_name>email</attribute_name>
+                       <attribute_value>${req.body.email}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
                  </soapenv:Body>
               </soapenv:Envelope>`
       }
     });
     reader = reader.citatels.citatel;
     bookmaker = bookmaker.knihovniks.knihovnik;
-    let readerSHA = sha256(req.body.heslo);
-    let bookmakerSHA = sha256(req.body.heslo);
-    if(bookmakerSHA === bookmaker.heslo)
-      console.log("je to knihovnik");
-    if(readerSHA === reader.heslo)
-      console.log("je to citatel");
+    if(reader != undefined){
+      let readerSHA = sha256(req.body.heslo);
+        if(readerSHA === reader.heslo)
+          res.send({response: "citatel"})
+        else
+          res.send({response: "Nesprávne heslo"})
+    }
+    else if(bookmaker != undefined){
+      let bookmakerSHA = sha256(req.body.heslo);
+      if(bookmakerSHA === bookmaker.heslo)
+        res.send({response: "knihovnik"})
+      else
+        res.send({response: "Nesprávne heslo"})
+    }
+    else
+      res.send({response: "Nesprávne prihlasovacie údaje"})
   })
+
 
   fastify.get('/forgotPassword', async(req, res) => {
     let email = req.query.email;
@@ -269,6 +288,7 @@ async function routes(fastify){
       }
     })
   })
+
 
   fastify.get('/checkSelectedDate', async(req, res) => {
     let hra_id = req.query.id;
@@ -351,6 +371,7 @@ async function routes(fastify){
       res.send(exemplars);
   })
 
+
   fastify.get('/checkLicence', async(req, res) => {
     let id = req.query.id
     let licence = await doRequest({
@@ -382,6 +403,7 @@ async function routes(fastify){
     else
       res.send({response: false})
   })
+
 
   fastify.get('/checkRegistry', async(req, res) => {
     let id = req.query.id
@@ -421,6 +443,7 @@ async function routes(fastify){
     //TODO: return boolean
   })
 
+
   fastify.post('/reservation/add', async(req, res) => {
     let insert = await doRequest({
         method: 'insert',
@@ -446,7 +469,7 @@ async function routes(fastify){
                             <datum_vybavenia></datum_vybavenia>
                             <datum_od>${req.body.datum_od}</datum_od>
                             <datum_do>${req.body.datum_do}</datum_do>
-                            <stav>Vybavená</stav>
+                            <stav>Čaká na vybavenie</stav>
                             <popis>${req.body.popis}</popis>
                             <sprava_knihovnika></sprava_knihovnika>
                          </rezervacia>
@@ -458,12 +481,68 @@ async function routes(fastify){
     res.send(insert);
   })
 
-  fastify.get('/reservation', async(req, res) => {
-    //TODO: get reservations based on your ID / or on their state!(librarian)
-    let id = req.query.id
-    let query = await doRequest()
+
+  fastify.get('/reservations/id', async(req, res) => {
+    let q = req.query.q
+    let query = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>citatel_id</attribute_name>
+                       <attribute_value>${q}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    query = query.rezervacias.rezervacia
+    if(query === undefined)
+      res.send({response: "Not available"})
+    else
+      res.send(query)
   })
 
+fastify.get('/reservations/state', async(req, res) => {
+  let q = req.query.q
+  let query = await doRequest({
+    method: 'getByAttributeValue',
+    body: {
+      method: 'POST',
+      url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+      headers: {
+        'Content-Type': ['text/xml', 'application/xml']
+      },
+      body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+               <soapenv:Header/>
+               <soapenv:Body>
+                  <typ:getByAttributeValue>
+                     <attribute_name>stav</attribute_name>
+                     <attribute_value>${q}</attribute_value>
+                     <ids>
+                        <id></id>
+                     </ids>
+                  </typ:getByAttributeValue>
+               </soapenv:Body>
+            </soapenv:Envelope>`
+    }
+  })
+  query = query.rezervacias.rezervacia
+  if(query === undefined)
+    res.send({response: "Not available"})
+  else
+    res.send(query)
+  })
 }
 
 module.exports = routes
