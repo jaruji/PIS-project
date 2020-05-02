@@ -443,8 +443,7 @@ async function routes(fastify){
     //TODO: return boolean
   })
 
-
-  fastify.post('/reservation/add', async(req, res) => {
+  fastify.post('/reservations/add', async(req, res) => {
     let insert = await doRequest({
         method: 'insert',
         body: {
@@ -481,38 +480,6 @@ async function routes(fastify){
     res.send(insert);
   })
 
-
-  fastify.get('/reservations/id', async(req, res) => {
-    let q = req.query.q
-    let query = await doRequest({
-      method: 'getByAttributeValue',
-      body: {
-        method: 'POST',
-        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
-        headers: {
-          'Content-Type': ['text/xml', 'application/xml']
-        },
-        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
-                 <soapenv:Header/>
-                 <soapenv:Body>
-                    <typ:getByAttributeValue>
-                       <attribute_name>citatel_id</attribute_name>
-                       <attribute_value>${q}</attribute_value>
-                       <ids>
-                          <id></id>
-                       </ids>
-                    </typ:getByAttributeValue>
-                 </soapenv:Body>
-              </soapenv:Envelope>`
-      }
-    })
-    query = query.rezervacias.rezervacia
-    if(query === undefined)
-      res.send({response: "Not available"})
-    else
-      res.send(query)
-  })
-
 fastify.get('/reservations/state', async(req, res) => {
   let q = req.query.q
   let query = await doRequest({
@@ -542,6 +509,170 @@ fastify.get('/reservations/state', async(req, res) => {
     res.send({response: "Not available"})
   else
     res.send(query)
+  })
+
+// metoda vrati vsetky rezervacie citatela na zaklade citatel_id
+  fastify.get('/reservations/customer_id', async(req, res) => {
+    let id = req.query.id
+    let query = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>citatel_id</attribute_name>
+                       <attribute_value>${id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    query = query.rezervacias.rezervacia
+    if(query === undefined)
+      res.send({response: "Not available"})
+    else
+      res.send(query)
+  })
+
+//metoda vrati jednu konkretnu rezervaciu citatela na zaklade id rezervacie spolu s obrazkami
+  fastify.get('/reservations/reservation', async(req, res) => {
+    let id = req.query.id
+    let reservation = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>id</attribute_name>
+                       <attribute_value>${id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    reservation = reservation.rezervacias.rezervacia
+    if(reservation === undefined) {
+      res.send({response: "Not available"})
+      return
+    }
+    let exemplar_id = reservation.exemplar_id;
+    let exemplar = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106exemplar',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106exemplar/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>id</attribute_name>
+                       <attribute_value>${exemplar_id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    exemplar = exemplar.exemplars.exemplar;
+    if(exemplar === undefined) {
+      res.send({response: "Not available"})
+      return
+    }
+    let hra_id = exemplar.hra_id;
+    let img = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106obrazok',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106obrazok/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>hra_id</attribute_name>
+                       <attribute_value>${hra_id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    img = img.obrazoks.obrazok;
+    if(img === undefined) {
+      res.send({response: "Not available"})
+      return
+    }
+    reservation.obrazky = []
+    for(let i in img)
+      reservation.obrazky.push(img[i])
+    res.send(reservation);
+  })
+
+//metoda na upravu rezervacie na zaklade jej id
+// TODO: funguje ale treba doplnit "vyhotovil" a dalsie..
+  fastify.post('/reservations/edit', async(req, res) => {
+    let update = await doRequest({
+      method: 'update',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+               <soapenv:Header/>
+               <soapenv:Body>
+                  <typ:update>
+                     <team_id>106</team_id>
+                     <team_password>RDVKPF</team_password>
+                     <entity_id>${req.body.id}</entity_id>
+                     <rezervacia>
+                        <id></id>
+                        <name></name>
+                        <vyhotovil></vyhotovil>
+                        <citatel_id>${req.body.citatel_id}</citatel_id>
+                        <exemplar_id>${req.body.exemplar_id}</exemplar_id>
+                        <datum_vytvorenia>${req.body.datum_vytvorenia}</datum_vytvorenia>
+                        <datum_vybavenia></datum_vybavenia>
+                        <datum_od>${req.body.datum_od}</datum_od>
+                        <datum_do>${req.body.datum_do}</datum_do>
+                        <stav>${req.body.stav}</stav>
+                        <popis>${req.body.popis}</popis>
+                        <sprava_knihovnika>${req.body.sprava_knihovnika}</sprava_knihovnika>
+                     </rezervacia>
+                  </typ:update>
+               </soapenv:Body>
+            </soapenv:Envelope>`
+      }
+    })
+    res.send(update)
   })
 }
 
