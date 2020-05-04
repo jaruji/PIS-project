@@ -758,6 +758,11 @@ fastify.get('/reservations/state', async(req, res) => {
     res.code(200).send()
   })
 
+  fastify.get('/user/verifyCode', async(req, res) => {
+
+
+  })
+
 }
 
 
