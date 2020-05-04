@@ -1,7 +1,8 @@
 const request = require('request');
 const parser = require('fast-xml-parser');
 const sha256 = require('js-sha256');
-
+const crypto = require('crypto')
+const gpc = require('generate-pincode')
 
 function parseXML(xml, method) {
   let json = parser.parse(xml.body);
@@ -261,34 +262,6 @@ async function routes(fastify){
     else
       res.send({response: "Nesprávne prihlasovacie údaje"})
   })
-
-
-  fastify.get('/forgotPassword', async(req, res) => {
-    let email = req.query.email;
-    let = await doRequest({
-      method: 'getByAttributeValue',
-      body: {
-        method: 'POST',
-        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/NotificationServices/Email',
-        headers: {
-          'Content-Type': ['text/xml', 'application/xml']
-        },
-        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106exemplar/types">
-                 <soapenv:Header/>
-                 <soapenv:Body>
-                    <typ:getByAttributeValue>
-                       <attribute_name>hra_id</attribute_name>
-                       <attribute_value>${hra_id}</attribute_value>
-                       <ids>
-                          <id></id>
-                       </ids>
-                    </typ:getByAttributeValue>
-                 </soapenv:Body>
-                </soapenv:Envelope>`
-      }
-    })
-  })
-
 
   fastify.get('/checkSelectedDate', async(req, res) => {
     let hra_id = req.query.id;
@@ -638,6 +611,29 @@ fastify.get('/reservations/state', async(req, res) => {
 //metoda na upravu rezervacie na zaklade jej id
 // TODO: funguje ale treba doplnit "vyhotovil" a dalsie..
   fastify.post('/reservations/edit', async(req, res) => {
+    let reservation = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:getByAttributeValue>
+                       <attribute_name>id</attribute_name>
+                       <attribute_value>${id}</attribute_value>
+                       <ids>
+                          <id></id>
+                       </ids>
+                    </typ:getByAttributeValue>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    reservation = reservation.rezervacies.rezervacie
     let update = await doRequest({
       method: 'update',
       body: {
@@ -657,10 +653,10 @@ fastify.get('/reservations/state', async(req, res) => {
                         <id></id>
                         <name></name>
                         <vyhotovil></vyhotovil>
-                        <citatel_id>${req.body.citatel_id}</citatel_id>
-                        <exemplar_id>${req.body.exemplar_id}</exemplar_id>
-                        <datum_vytvorenia>${req.body.datum_vytvorenia}</datum_vytvorenia>
-                        <datum_vybavenia></datum_vybavenia>
+                        <citatel_id>${reservation.citatel_id}</citatel_id>
+                        <exemplar_id>${reservation.exemplar_id}</exemplar_id>
+                        <datum_vytvorenia>${reservation.datum_vytvorenia}</datum_vytvorenia>
+                        <datum_vybavenia>${req.body.datum_vybavenia}</datum_vybavenia>
                         <datum_od>${req.body.datum_od}</datum_od>
                         <datum_do>${req.body.datum_do}</datum_do>
                         <stav>${req.body.stav}</stav>
@@ -674,6 +670,95 @@ fastify.get('/reservations/state', async(req, res) => {
     })
     res.send(update)
   })
+
+  fastify.get('/user/forgotPassword', async(req, res) => {
+    let email = req.query.email
+    let user = await doRequest({
+        method: 'getByAttributeValue',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106citatel',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106citatel/types">
+                   <soapenv:Header/>
+                   <soapenv:Body>
+                      <typ:getByAttributeValue>
+                         <attribute_name>email</attribute_name>
+                         <attribute_value>${email}</attribute_value>
+                         <ids>
+                            <id></id>
+                         </ids>
+                      </typ:getByAttributeValue>
+                   </soapenv:Body>
+                </soapenv:Envelope>`
+        }
+    })
+    user = user.citatels.citatel
+    var code = gpc(6)
+    let date = new Date()
+    date.setMinutes(date.getMinutes() + 20);
+    let update = await doRequest({
+      method: 'update',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106citatel',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106citatel/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:update>
+                       <team_id>106</team_id>
+                       <team_password>RDVKPF</team_password>
+                       <entity_id>${user.id}</entity_id>
+                       <citatel>
+                          <id>${user.id}</id>
+                          <name>${user.name}</name>
+                          <meno>${user.meno}</meno>
+                          <priezvisko>${user.priezvisko}</priezvisko>
+                          <email>${user.email}</email>
+                          <heslo>${user.heslo}</heslo>
+                          <telefon>${user.telefon}</telefon>
+                          <pohlavie>${user.pohlavie}</pohlavie>
+                          <datum_narodenia>${user.datum_narodenia}</datum_narodenia>
+                          <cislo_preukazu>${user.cislo_preukazu}</cislo_preukazu>
+                          <kod>${code}</kod>
+                          <platnost_kodu>${date.toJSON()}</platnost_kodu>
+                       </citatel>
+                    </typ:update>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    let notify = doRequest({
+        method: 'notify',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/NotificationServices/Email',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/notificationservices/email/types">
+                   <soapenv:Header/>
+                   <soapenv:Body>
+                      <typ:notify>
+                         <team_id>106</team_id>
+                         <password>RDVKPF</password>
+                         <email>${user.email}</email>
+                         <subject>Reset your password</subject>
+                         <message>Hello ${user.meno}, reset your password by using the following code: ${code}</message>
+                      </typ:notify>
+                   </soapenv:Body>
+                </soapenv:Envelope>`
+        }
+    })
+    res.code(200).send()
+  })
+
 }
+
 
 module.exports = routes
