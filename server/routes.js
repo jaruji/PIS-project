@@ -733,7 +733,7 @@ fastify.get('/reservations/state', async(req, res) => {
               </soapenv:Envelope>`
       }
     })
-    let notify = doRequest({
+    let notify = await doRequest({
         method: 'notify',
         body: {
           method: 'POST',
@@ -758,9 +758,100 @@ fastify.get('/reservations/state', async(req, res) => {
     res.code(200).send()
   })
 
+
   fastify.get('/user/verifyCode', async(req, res) => {
+    let email = req.query.email
+    let code = req.query.code
+    let user = await doRequest({
+        method: 'getByAttributeValue',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106citatel',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106citatel/types">
+                   <soapenv:Header/>
+                   <soapenv:Body>
+                      <typ:getByAttributeValue>
+                         <attribute_name>email</attribute_name>
+                         <attribute_value>${email}</attribute_value>
+                         <ids>
+                            <id></id>
+                         </ids>
+                      </typ:getByAttributeValue>
+                   </soapenv:Body>
+                </soapenv:Envelope>`
+        }
+    })
+    user = user.citatels.citatel
+    if(user.kod === parseInt(code) && new Date() <= new Date(user.platnost_kodu))
+      res.send({response: true})
+    else
+      res.send({response: false})
+  })
 
-
+  fastify.post('/user/password', async(req, res) => {
+    let email = req.body.email
+    let password = req.body.heslo
+    let user = await doRequest({
+        method: 'getByAttributeValue',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106citatel',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106citatel/types">
+                   <soapenv:Header/>
+                   <soapenv:Body>
+                      <typ:getByAttributeValue>
+                         <attribute_name>email</attribute_name>
+                         <attribute_value>${email}</attribute_value>
+                         <ids>
+                            <id></id>
+                         </ids>
+                      </typ:getByAttributeValue>
+                   </soapenv:Body>
+                </soapenv:Envelope>`
+        }
+    })
+    user = user.citatels.citatel
+    let update = await doRequest({
+      method: 'update',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106citatel',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106citatel/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:update>
+                       <team_id>106</team_id>
+                       <team_password>RDVKPF</team_password>
+                       <entity_id>${user.id}</entity_id>
+                       <citatel>
+                          <id>${user.id}</id>
+                          <name>${user.name}</name>
+                          <meno>${user.meno}</meno>
+                          <priezvisko>${user.priezvisko}</priezvisko>
+                          <email>${user.email}</email>
+                          <heslo>${password}</heslo>
+                          <telefon>${user.telefon}</telefon>
+                          <pohlavie>${user.pohlavie}</pohlavie>
+                          <datum_narodenia>${user.datum_narodenia}</datum_narodenia>
+                          <cislo_preukazu>${user.cislo_preukazu}</cislo_preukazu>
+                          <kod></kod>
+                          <platnost_kodu></platnost_kodu>
+                       </citatel>
+                    </typ:update>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+      }
+    })
+    res.code(200).send()
   })
 
 }
