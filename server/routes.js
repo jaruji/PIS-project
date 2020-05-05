@@ -517,7 +517,7 @@ fastify.get('/reservations/state', async(req, res) => {
       for(let i in query)
         _query.push(query[i])
       _query = _query.filter((x) => {return x.stav !== "Zamietnutá" && x.stav !== "Zrušená"})
-      res.send(query)
+      res.send(_query)
     }
   })
 
