@@ -248,14 +248,14 @@ async function routes(fastify){
     if(reader != undefined){
       let readerSHA = sha256(req.body.heslo);
         if(readerSHA === reader.heslo)
-          res.send({response: "citatel"})
+          res.send({id: citatel.id, response: "citatel"})
         else
           res.send({response: "Nesprávne heslo"})
     }
     else if(bookmaker != undefined){
       let bookmakerSHA = sha256(req.body.heslo);
       if(bookmakerSHA === bookmaker.heslo)
-        res.send({response: "knihovnik"})
+        res.send({id: bookmaker.id, response: "knihovnik"})
       else
         res.send({response: "Nesprávne heslo"})
     }
@@ -610,30 +610,7 @@ fastify.get('/reservations/state', async(req, res) => {
 
 //metoda na upravu rezervacie na zaklade jej id
 // TODO: funguje ale treba doplnit "vyhotovil" a dalsie..
-  fastify.post('/reservations/edit', async(req, res) => {
-    let reservation = await doRequest({
-      method: 'getByAttributeValue',
-      body: {
-        method: 'POST',
-        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
-        headers: {
-          'Content-Type': ['text/xml', 'application/xml']
-        },
-        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
-                 <soapenv:Header/>
-                 <soapenv:Body>
-                    <typ:getByAttributeValue>
-                       <attribute_name>id</attribute_name>
-                       <attribute_value>${id}</attribute_value>
-                       <ids>
-                          <id></id>
-                       </ids>
-                    </typ:getByAttributeValue>
-                 </soapenv:Body>
-              </soapenv:Envelope>`
-      }
-    })
-    reservation = reservation.rezervacies.rezervacie
+  fastify.patch('/reservations/edit', async(req, res) => {
     let update = await doRequest({
       method: 'update',
       body: {
@@ -653,9 +630,9 @@ fastify.get('/reservations/state', async(req, res) => {
                         <id></id>
                         <name></name>
                         <vyhotovil></vyhotovil>
-                        <citatel_id>${reservation.citatel_id}</citatel_id>
-                        <exemplar_id>${reservation.exemplar_id}</exemplar_id>
-                        <datum_vytvorenia>${reservation.datum_vytvorenia}</datum_vytvorenia>
+                        <citatel_id>${req.body.citatel_id}</citatel_id>
+                        <exemplar_id>${req.body.exemplar_id}</exemplar_id>
+                        <datum_vytvorenia>${req.body.datum_vytvorenia}</datum_vytvorenia>
                         <datum_vybavenia>${req.body.datum_vybavenia}</datum_vybavenia>
                         <datum_od>${req.body.datum_od}</datum_od>
                         <datum_do>${req.body.datum_do}</datum_do>
@@ -669,6 +646,72 @@ fastify.get('/reservations/state', async(req, res) => {
       }
     })
     res.send(update)
+  })
+
+  fastify.get('/reservations/interval', async(req, res) => {
+    let reservations = await doRequest({
+      method: 'getByAttributeValue',
+      body: {
+        method: 'POST',
+        url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+        headers: {
+          'Content-Type': ['text/xml', 'application/xml']
+        },
+        body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+               <soapenv:Header/>
+               <soapenv:Body>
+                  <typ:getByAttributeValue>
+                     <attribute_name>citatel_id</attribute_name>
+                     <attribute_value>${req.query.id}</attribute_value>
+                     <ids>
+                        <id></id>
+                     </ids>
+                  </typ:getByAttributeValue>
+               </soapenv:Body>
+            </soapenv:Envelope>`
+      }
+    })
+    reservations = reservations.rezervacias.rezervacia
+    if(reservations === undefined) {
+      res.send([])
+      return
+    }
+    let _reservations = []
+    for(let i in reservations)
+      _reservations.push(reservations[i])
+    let dateTo = new Date(req.query.dateTo)
+    let dateFrom = new Date(req.query.dateFrom)
+    _reservations = _reservations.filter((x) => { return x.stav !== "Zrušená" && x.stav !== "Zamietnutá" })
+    reservations = []
+    for(let i in _reservations) {
+      if((dateFrom >= new Date(_reservations[i].datum_od) && dateFrom <= new Date(_reservations[i].datum_do)) || (dateTo >= new Date(_reservations[i].datum_od) && dateTo <= new Date(_reservations[i].datum_do)))
+        reservations.push(_reservations[i])
+    }
+    res.send(reservations)
+  })
+
+  fastify.delete('/reservations/delete', async(req, res) => {
+    let del = await doRequest({
+        method: 'delete',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/Students/Team106rezervacia',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/students/team106rezervacia/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:delete>
+                       <team_id>106</team_id>
+                       <team_password>RDVKPF</team_password>
+                       <entity_id>${req.body.id}</entity_id>
+                    </typ:delete>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+        }
+    })
+    res.code(200).send()
   })
 
   fastify.get('/user/forgotPassword', async(req, res) => {
@@ -854,6 +897,31 @@ fastify.get('/reservations/state', async(req, res) => {
     res.code(200).send()
   })
 
+
+  fastify.post('/notify', async(req, res) => {
+    let nofity = await doRequest({
+        method: 'notify',
+        body: {
+          method: 'POST',
+          url: 'http://pis.predmety.fiit.stuba.sk/pis/ws/NotificationServices/Email',
+          headers: {
+            'Content-Type': ['text/xml', 'application/xml']
+          },
+          body: `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:typ="http://pis.predmety.fiit.stuba.sk/pis/notificationservices/email/types">
+                 <soapenv:Header/>
+                 <soapenv:Body>
+                    <typ:notify>
+                       <team_id>106</team_id>
+                       <password>RDVKPF</password>
+                       <email>${req.body.email}</email>
+                       <subject>${req.body.subject}</subject>
+                       <message>${req.body.message}</message>
+                    </typ:notify>
+                 </soapenv:Body>
+              </soapenv:Envelope>`
+        }
+    })
+  })
 }
 
 
