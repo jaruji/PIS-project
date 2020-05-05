@@ -510,10 +510,15 @@ fastify.get('/reservations/state', async(req, res) => {
       }
     })
     query = query.rezervacias.rezervacia
+    let _query = []
     if(query === undefined)
       res.send({response: "Not available"})
-    else
+    else {
+      for(let i in query)
+        _query.push(query[i])
+      _query = _query.filter((x) => {return x.stav !== "Zamietnutá" && x.stav !== "Zrušená"})
       res.send(query)
+    }
   })
 
 //metoda vrati jednu konkretnu rezervaciu citatela na zaklade id rezervacie spolu s obrazkami
