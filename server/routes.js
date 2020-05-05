@@ -250,17 +250,17 @@ async function routes(fastify){
         if(readerSHA === reader.heslo)
           res.send({id: citatel.id, response: "citatel"})
         else
-          res.send({response: "Nesprávne heslo"})
+          res.code(400).send(new Error("Nesprávne prihlasovacie údaje"))
     }
     else if(bookmaker != undefined){
       let bookmakerSHA = sha256(req.body.heslo);
       if(bookmakerSHA === bookmaker.heslo)
         res.send({id: bookmaker.id, response: "knihovnik"})
       else
-        res.send({response: "Nesprávne heslo"})
+        res.code(400).send(new Error("Nesprávne prihlasovacie údaje"))
     }
     else
-      res.send({response: "Nesprávne prihlasovacie údaje"})
+      res.code(400).send(new Error("Nesprávne prihlasovacie údaje"))
   })
 
   fastify.get('/checkSelectedDate', async(req, res) => {
